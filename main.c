@@ -41,8 +41,24 @@ void archive_file(char *path, char *relPath) {
     free(file);
 }
 
+char *getNumString(int num) {
+    int size = 1;
+    int temp = num;
+    do {
+        size++;
+        temp /= 10;
+    } while (temp > 0);
+    char *number = (char *) malloc(sizeof(char) * size);
+    for (int i = size - 2; i > -1; i--) {
+        number[i] = (num % 10) + '0';
+        num /= 10;
+    }
+    number[size - 1] = '\0';
+    return number;
+}
+
 char *stick_path(char *base, char *filename) {
-    unsigned result_size = strlen(base) + strlen(filename) + 1;
+    unsigned result_size = strlen(base) + strlen(filename) + 2;
     char *result = (char *) malloc(sizeof(char) * result_size);
     strcpy(result, base);
     strcat(result, "\\");
@@ -50,38 +66,73 @@ char *stick_path(char *base, char *filename) {
     return result;
 }
 
+char *concatenate(char *first, char *second) {
+    unsigned result_size = strlen(first) + strlen(second) + 1;
+    char *result = (char *) malloc(sizeof(char) * result_size);
+    strcpy(result, first);
+    strcat(result, second);
+    return result;
+}
+
 char *getLastDir(char *path) {
-    char *tempPath = (char *) malloc(sizeof(char) * strlen(path));
+    char *tempPath = (char *) malloc(sizeof(char) * strlen(path) + 1);
     strcpy(tempPath, path);
     char *prev = strtok(tempPath, "\\/");
     char *current = strtok(NULL, "\\/");
     while (current != NULL) {
-        free(prev);
         prev = current;
         current = strtok(NULL, "\\/");
     }
-    return prev;
+    char *last_dir = (char *) malloc(sizeof(char) * strlen(prev) + 1);
+    strcpy(last_dir, prev);
+    free(tempPath);
+    return last_dir;
 }
 
 void createArchive(char *path) {
+    // Get filename for archive
     char *filename = getLastDir(path);
+    PRINTD("Archive name: %s\n", filename);
     if (filename == NULL) {
         printf("Incorrect file path.\n");
         return;
     }
-    char *folder = (char *) malloc(sizeof(char) * (strlen(path) - strlen(filename)));
-    strncpy(folder, path, strlen(folder));
-    char *tempPath = (char *) malloc(sizeof(char) * strlen(path) + sizeof(char) * 5);
+    // Get path where archive will be placed
+    unsigned folder_len = strlen(path) - strlen(filename);
+    char *folder = (char *) malloc(sizeof(char) * folder_len);
+    strncpy(folder, path, folder_len);
+    folder[folder_len - 1] = '\0';
     PRINTD("Result folder: %s\n", folder);
-//    strcpy(tempPath, path);
-//    strcat(tempPath, ".arch");
-//    printf("%s", tempPath);
-//    int arch = open(tempPath, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
-//    if (arch == -1) {
-//        printf("Error opening file.\n");
-//        return;
-//    }
-//    *archive = arch;
+    //Check file existance
+    char *incompletePath = stick_path(folder, filename);
+    char *completePath = concatenate(incompletePath, ".arch");
+    int iArchive = open(completePath, O_RDONLY);
+    if (iArchive > 0) {
+        int attempt = 0;
+        do {
+            close(iArchive);
+            attempt++;
+            free(completePath);
+            char *iterationString = getNumString(attempt);
+            char *pathWithIteration = concatenate(incompletePath, iterationString);
+            completePath = concatenate(pathWithIteration, ".arch");
+            free(pathWithIteration);
+            free(iterationString);
+            iArchive = open(completePath, O_RDONLY);
+        } while (iArchive > 0);
+    }
+    PRINTD("New Path %s\n", completePath);
+    int arch = open(completePath, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+    if (arch == -1) {
+        printf("Error opening file.\n");
+        return;
+    }
+    archive = (int *) malloc(sizeof(int));
+    *archive = arch;
+    free(folder);
+    free(filename);
+    free(completePath);
+    free(incompletePath);
 }
 
 void list_directories(char *origin_path, char *path) {
