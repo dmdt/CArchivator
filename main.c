@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 
+#include "lib/pathlib/pathlib.h"
+
 #ifndef DEBUG
 #define PRINTD(...) printf(__VA_ARGS__);
 #else
@@ -19,13 +21,6 @@ typedef struct {
     unsigned size;
     char *path;
 } record;
-
-char *getRelativePath(char *root_path, char *file_path) {
-    unsigned relativePathLen = strlen(file_path) - strlen(root_path);
-    char *relativePath = (char *) malloc(sizeof(char) * relativePathLen);
-    strncpy(relativePath, file_path + strlen(root_path) + 1, relativePathLen);
-    return relativePath;
-}
 
 record *prepareFile(char *path, char *relPath) {
     //Struct with file meta
@@ -76,15 +71,6 @@ char *numToString(int num) {
     return number;
 }
 
-char *stick_path(char *base, char *filename) {
-    unsigned result_size = strlen(base) + strlen(filename) + 2;
-    char *result = (char *) malloc(sizeof(char) * result_size);
-    strcpy(result, base);
-    strcat(result, "\\");
-    strcat(result, filename);
-    return result;
-}
-
 char *concatenate(char *first, char *second) {
     unsigned result_size = strlen(first) + strlen(second) + 1;
     char *result = (char *) malloc(sizeof(char) * result_size);
@@ -93,25 +79,10 @@ char *concatenate(char *first, char *second) {
     return result;
 }
 
-char *getLastDir(char *path) {
-    char *tempPath = (char *) malloc(sizeof(char) * strlen(path) + 1);
-    strcpy(tempPath, path);
-    char *prev = strtok(tempPath, "\\/");
-    char *current = strtok(NULL, "\\/");
-    while (current != NULL) {
-        prev = current;
-        current = strtok(NULL, "\\/");
-    }
-    char *last_dir = (char *) malloc(sizeof(char) * strlen(prev) + 1);
-    strcpy(last_dir, prev);
-    free(tempPath);
-    return last_dir;
-}
-
 //Error handling?
 void createArchive(char *path, char* filename) {
     //Check file existance
-    char *incompletePath = stick_path(path, filename);
+    char *incompletePath = stickPath(path, filename);
     char *completePath = concatenate(incompletePath, ".arch");
     int iArchive = open(completePath, O_RDONLY | O_BINARY);
     if (iArchive > 0) {
@@ -153,14 +124,14 @@ void list_directories(char *origin_path, char *path) {
         if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
             if (entry->d_type == DT_DIR) {
                 PRINTD("Folder %s\n", entry->d_name);
-                char *new_dir = stick_path(path, entry->d_name);
+                char *new_dir = stickPath(path, entry->d_name);
                 PRINTD("---->\n");
                 list_directories(origin_path, new_dir);
                 PRINTD("<----\n");
                 free(new_dir);
             } else {
                 PRINTD("File %s\n", entry->d_name);
-                char *file = stick_path(path, entry->d_name);
+                char *file = stickPath(path, entry->d_name);
                 char *fileRelativePath = getRelativePath(origin_path, file);
                 record *fileMeta = prepareFile(file, fileRelativePath);
                 if (fileMeta->path == NULL) {
@@ -176,6 +147,10 @@ void list_directories(char *origin_path, char *path) {
         entry = readdir(dir);
     }
     closedir(dir);
+}
+
+void createFolder(char* path, char* name) {
+
 }
 
 int checkPath(char* path) {
@@ -213,7 +188,6 @@ int readMeta(record* fileMeta) {
     }
     fileMeta->size = sizeTemp;
     fileMeta->path = pathTemp;
-    lseek(*archive, sizeTemp, SEEK_CUR);
     return 1;
 }
 
@@ -226,7 +200,7 @@ int main(int argc, char** argv) {
     char* name = NULL;
     char* destinationPath = NULL;
     //Mode "1" - unpack, mode "2" - pack, mode "3" - show archive content
-    short mode = 0;
+    int mode = 0;
     // Parse arguments
     for (int i = 1; i < argc; i++) {
         if (strcmp(*(argv+i), "-m") == 0) {
@@ -261,7 +235,7 @@ int main(int argc, char** argv) {
         return 1;
     }
     //Cut last folder name from path
-    char* lastPathDir = getLastDir(path);
+    char* lastPathDir = getLastEntity(path);
     if (mode < 3) {
         // Is destination path were specified
         if (destinationPath == NULL) {
@@ -294,7 +268,7 @@ int main(int argc, char** argv) {
     }
     //
     if (mode == 1) {
-
+        createFolder(destinationPath, name);
     } else if (mode == 2) {
         createArchive(destinationPath, name);
         list_directories(path, path);
@@ -307,11 +281,14 @@ int main(int argc, char** argv) {
         }
         printf("Archive content:\n");
         while (readMeta(fileMeta)) {
+            lseek(*archive, fileMeta->size, SEEK_CUR);
             printMeta(fileMeta);
             if (fileMeta->path != NULL) {
                 free(fileMeta->path);
             }
         }
+        free(fileMeta);
+        closeArchive();
     }
     free(lastPathDir);
     return 0;
