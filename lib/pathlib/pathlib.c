@@ -18,13 +18,14 @@ if (!x) {\
 char *getRelativePath(char *base, char *path) {
     unsigned relativePathLength = strlen(path) - strlen(base);
     char *relativePath = (char *) malloc(sizeof(char) * relativePathLength);
-    ALLOC_TEST(relativePath);
+    ALLOC_TEST(relativePath)
     strncpy(relativePath, path + strlen(base) + 1, relativePathLength);
     return relativePath;
 }
 
 char *getLastEntity(char *path) {
     char *temp = (char *) malloc(sizeof(char) * (strlen(path) + 1));
+    ALLOC_TEST(temp)
     strcpy(temp, path);
     char *prev = strtok(temp, DELIMETER_STR);
     char *current = strtok(NULL, DELIMETER_STR);
@@ -33,6 +34,7 @@ char *getLastEntity(char *path) {
         current = strtok(NULL, DELIMETER_STR);
     }
     char *lastEntity = (char *) malloc(sizeof(char) * (strlen(prev) + 1));
+    ALLOC_TEST(lastEntity)
     strcpy(lastEntity, prev);
     free(temp);
     return lastEntity;
@@ -54,7 +56,7 @@ char *stickPath(const char *base, const char *path) {
         resultSize++;
     }
     char *result = (char *) malloc(sizeof(char) * resultSize);
-    ALLOC_TEST(result);
+    ALLOC_TEST(result)
     strcpy(result, base);
     if (!pathCovered) {
         strcat(result, DELIMETER_STR);
@@ -105,6 +107,7 @@ char *cutExtension(char *path) {
 char *getPathToFile(const char *path, const char *filename) {
     unsigned len = strlen(path) - strlen(filename) - 1;
     char *result = (char *) malloc(sizeof(char) * (len + 1));
+    ALLOC_TEST(result)
     strncpy(result, path, len);
     result[len] = '\0';
     return result;
@@ -124,9 +127,7 @@ int decomposePath(const char* path, char *** container) {
     strcpy(temp, path);
     char *pathEntity = strtok(temp, DELIMETER_STR);
     for (int i = 0; i < pathEntities; i++) {
-        *(*container+i) = (char *) malloc(sizeof(char) * (strlen(pathEntity) + 1));
-        ALLOC_TEST(*(*container+i))
-        strcpy(*(*container+i), pathEntity);
+        *(*container+i) = copyString(pathEntity);
         pathEntity = strtok(NULL, DELIMETER_STR);
     }
     return pathEntities;
@@ -145,11 +146,15 @@ void createPath(const char *base, const char *path) {
         free(oldPath);
         oldPath = tempPath;
     }
+    for (int i = 0; i < entitiesNum; i++) {
+        free(*(pathEntities+i));
+    }
     free(oldPath);
 }
 
 char *copyString(const char * str) {
     char * result = (char *) malloc(sizeof(char) * (strlen(str) + 1));
+    ALLOC_TEST(result)
     strcpy(result, str);
     return result;
 }

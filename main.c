@@ -13,6 +13,12 @@
 #define PRINTD(...)
 #endif
 
+#define ALLOC_TEST(x) \
+if (!x) {\
+    printf("Allocation error.\n");\
+    exit(1);\
+}
+
 #define CHUNK_SIZE 8192
 
 int *archive = NULL;
@@ -23,27 +29,29 @@ typedef struct {
 } record;
 
 record *prepareFile(char *path, char *relPath) {
-    //Struct with file meta
-    record *file = (record *) malloc(sizeof(record));
-    int file2read = open(path, O_RDONLY | O_BINARY);
-    if (file2read == -1) {
-        PRINTD("Error opening file %s.", path);
-        file->path = NULL;
-        return file;
+    //Struct with fileMeta meta
+    record *fileMeta = (record *) malloc(sizeof(record));
+    ALLOC_TEST(fileMeta)
+    int file = open(path, O_RDONLY | O_BINARY);
+    if (file == -1) {
+        PRINTD("Error opening fileMeta %s.", path)
+        fileMeta->path = NULL;
+        return fileMeta;
     }
-    lseek(file2read, 0, SEEK_END);
-    file->size = tell(file2read);
-    file->path = relPath;
-    PRINTD("File size %d Bytes\n", file->size);
-    PRINTD("File relative path: %s\n", file->path);
-    close(file2read);
-    return file;
+    lseek(file, 0, SEEK_END);
+    fileMeta->size = tell(file);
+    fileMeta->path = relPath;
+    PRINTD("File size %d Bytes\n", fileMeta->size)
+    PRINTD("File relative path: %s\n", fileMeta->path)
+    close(file);
+    return fileMeta;
 }
 
-void archiveFile(record *fileMeta, char *file) {
+void packFile(record *fileMeta, char *file) {
     write(*archive, &(fileMeta->size), sizeof(unsigned));
     write(*archive, fileMeta->path, strlen(fileMeta->path) + 1);
     char *chunk = (char *) malloc(sizeof(char) * CHUNK_SIZE);
+    ALLOC_TEST(chunk)
     int sourceFile = open(file, O_RDONLY | O_BINARY);
     for (unsigned i = 0; i < fileMeta->size / CHUNK_SIZE; i++) {
         read(sourceFile, chunk, CHUNK_SIZE);
@@ -74,6 +82,7 @@ char *numToString(int num) {
 char *concatenate(char *first, char *second) {
     unsigned result_size = strlen(first) + strlen(second) + 1;
     char *result = (char *) malloc(sizeof(char) * result_size);
+    ALLOC_TEST(result)
     strcpy(result, first);
     strcat(result, second);
     return result;
@@ -99,13 +108,14 @@ void createArchive(char *path, char *filename) {
             iArchive = open(completePath, O_RDONLY);
         } while (iArchive > 0);
     }
-    PRINTD("New Path %s\n", completePath);
+    PRINTD("New Path %s\n", completePath)
     int arch = open(completePath, O_WRONLY | O_CREAT | O_EXCL | O_BINARY, S_IRUSR | S_IWUSR);
     if (arch == -1) {
         printf("Error opening file.\n");
         return;
     }
     archive = (int *) malloc(sizeof(int));
+    ALLOC_TEST(archive)
     *archive = arch;
     free(completePath);
     free(incompletePath);
@@ -117,27 +127,27 @@ void closeArchive() {
     archive = NULL;
 }
 
-void list_directories(char *origin_path, char *path) {
+void roundDirectory(char *origin_path, char *path) {
     DIR *dir = opendir(path);
     struct dirent *entry = readdir(dir);
     while (entry != NULL) {
         if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
             if (entry->d_type == DT_DIR) {
-                PRINTD("Folder %s\n", entry->d_name);
+                PRINTD("Folder %s\n", entry->d_name)
                 char *new_dir = stickPath(path, entry->d_name);
-                PRINTD("---->\n");
-                list_directories(origin_path, new_dir);
-                PRINTD("<----\n");
+                PRINTD("---->\n")
+                roundDirectory(origin_path, new_dir);
+                PRINTD("<----\n")
                 free(new_dir);
             } else {
-                PRINTD("File %s\n", entry->d_name);
+                PRINTD("File %s\n", entry->d_name)
                 char *file = stickPath(path, entry->d_name);
                 char *fileRelativePath = getRelativePath(origin_path, file);
                 record *fileMeta = prepareFile(file, fileRelativePath);
                 if (fileMeta->path == NULL) {
-                    PRINTD("Can't archive file %s, skipping.", path);
+                    PRINTD("Can't archive file %s, skipping.", path)
                 } else {
-                    archiveFile(fileMeta, file);
+                    packFile(fileMeta, file);
                 }
                 free(file);
                 free(fileMeta);
@@ -148,7 +158,6 @@ void list_directories(char *origin_path, char *path) {
     }
     closedir(dir);
 }
-
 
 //FIXME: refactor
 char *createResultFolder(char *path, char *name) {
@@ -186,6 +195,7 @@ int openArchive(char *path) {
         return 0;
     }
     archive = (int *) malloc(sizeof(int));
+    ALLOC_TEST(archive)
     *archive = arch;
     return 1;
 }
@@ -193,6 +203,7 @@ int openArchive(char *path) {
 int readMeta(record *fileMeta) {
     unsigned sizeTemp;
     char *pathTemp = (char *) malloc(sizeof(char) * 256);
+    ALLOC_TEST(pathTemp)
     if (read(*archive, &sizeTemp, sizeof(unsigned)) == 0) {
         return 0;
     }
@@ -213,19 +224,25 @@ void printMeta(record *fileMeta) {
 }
 
 
-
-void unpackFile(char* path, unsigned length) {
-    char chunk[CHUNK_SIZE];
+int unpackFile(char* path, unsigned length) {
+    //Number of restored bytes
+    int bytes = 0;
+    char *chunk = (char *) malloc(sizeof(char) * CHUNK_SIZE);
+    ALLOC_TEST(chunk)
     int file = open(path, O_WRONLY | O_CREAT | O_EXCL | O_BINARY, S_IRUSR | S_IWUSR);
     if (file == -1) {
         PRINTD("Error creating file %s.\n", path)
     }
+    //Write file
     for (int i = 0; i < length / CHUNK_SIZE; i++) {
-        read(*archive, &chunk, CHUNK_SIZE);
-        write(file, &chunk, CHUNK_SIZE);
+        read(*archive, chunk, CHUNK_SIZE);
+        bytes += write(file, chunk, CHUNK_SIZE);
     }
-    read(*archive, &chunk, length % CHUNK_SIZE);
-    write(file, &chunk, length % CHUNK_SIZE);
+    read(*archive, chunk, length % CHUNK_SIZE);
+    bytes += write(file, chunk, length % CHUNK_SIZE);
+    close(file);
+    free(chunk);
+    return bytes;
 }
 
 void unpackArchive(char *path) {
@@ -234,7 +251,13 @@ void unpackArchive(char *path) {
     char *fileName = NULL;
     char *fullPath = NULL;
     record *fileMeta = (record *) malloc(sizeof(record));
+    ALLOC_TEST(fileMeta)
+    //Number of restored bytes
+    int bytes = 0;
+    //Number of extracted files
+    int files = 0;
     while (readMeta(fileMeta)) {
+        printf("Unpacking %s...\n", fileMeta->path);
         fileName = getLastEntity(fileMeta->path);
         if (isFilename(fileMeta->path)) {
             resultPath = copyString(path);
@@ -246,7 +269,7 @@ void unpackArchive(char *path) {
             createPath(path, innerPath);
         }
         fullPath = stickPath(resultPath, fileName);
-        unpackFile(fullPath, fileMeta->size);
+        bytes += unpackFile(fullPath, fileMeta->size);
         if (fileMeta->path != NULL) {
             free(fileMeta->path);
         }
@@ -254,7 +277,9 @@ void unpackArchive(char *path) {
         free(innerPath);
         free(resultPath);
         free(fullPath);
+        files++;
     }
+    PRINTD("Restored %d bytes in %d files.\n", bytes, files)
     free(fileMeta);
 }
 
@@ -315,10 +340,7 @@ int main(int argc, char **argv) {
     if (mode < 3) {
         // Is destination path were specified
         if (destinationPath == NULL) {
-            unsigned folder_len = strlen(path) - strlen(lastPathDir);
-            destinationPath = (char *) malloc(sizeof(char) * folder_len);
-            strncpy(destinationPath, path, folder_len);
-            destinationPath[folder_len - 1] = '\0';
+            destinationPath = getPathToFile(path, lastPathDir);
             PRINTD("Result folder: %s\n", destinationPath)
         }
         //Check destination path
@@ -329,11 +351,13 @@ int main(int argc, char **argv) {
             }
         }
     }
-    //
+    //Mode selection
     if (mode == 1) {
-        openArchive(path);
+        if (!openArchive(path)) {
+            printf("Error opening archive.\n");
+            return 1;
+        }
         char *resFolder = createResultFolder(destinationPath, name);
-        printf("%s\n", resFolder);
         unpackArchive(resFolder);
         closeArchive();
     } else if (mode == 2) {
@@ -343,9 +367,10 @@ int main(int argc, char **argv) {
             return 1;
         }
         createArchive(destinationPath, name);
-        list_directories(path, path);
+        roundDirectory(path, path);
         closeArchive();
     } else {
+        int files = 0;
         record *fileMeta = (record *) malloc(sizeof(record));
         if (!openArchive(path)) {
             printf("Error opening archive.\n");
@@ -358,8 +383,10 @@ int main(int argc, char **argv) {
             if (fileMeta->path != NULL) {
                 free(fileMeta->path);
             }
+            files++;
         }
         free(fileMeta);
+        printf("Archive size %ld bytes. %d files.\n", tell(*archive), files);
         closeArchive();
     }
     free(lastPathDir);
