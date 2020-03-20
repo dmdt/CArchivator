@@ -43,7 +43,7 @@ record *prepareFile(char *path, char *relPath) {
 void archiveFile(record *fileMeta, char *file) {
     write(*archive, &(fileMeta->size), sizeof(unsigned));
     write(*archive, fileMeta->path, strlen(fileMeta->path) + 1);
-    char *chunk = (char*)malloc(sizeof(char) * CHUNK_SIZE);
+    char *chunk = (char *) malloc(sizeof(char) * CHUNK_SIZE);
     int sourceFile = open(file, O_RDONLY | O_BINARY);
     for (unsigned i = 0; i < fileMeta->size / CHUNK_SIZE; i++) {
         read(sourceFile, chunk, CHUNK_SIZE);
@@ -80,7 +80,7 @@ char *concatenate(char *first, char *second) {
 }
 
 //Error handling?
-void createArchive(char *path, char* filename) {
+void createArchive(char *path, char *filename) {
     //Check file existance
     char *incompletePath = stickPath(path, filename);
     char *completePath = concatenate(incompletePath, ".arch");
@@ -149,21 +149,38 @@ void list_directories(char *origin_path, char *path) {
     closedir(dir);
 }
 
-void createFolder(char* path, char* name) {
 
-}
+//FIXME: refactor
+char *createResultFolder(char *path, char *name) {
+    char *folderPath = stickPath(path, name);
+    char *attemptedPath = folderPath;
 
-int checkPath(char* path) {
-    DIR *dir = opendir(path);
-    if (dir == NULL) {
-        closedir(dir);
-        return 0;
+    int isPathExists = checkPath(folderPath);
+
+    if (isPathExists) {
+        int counter = 1;
+        char *attemptCounter;
+        while (1) {
+            attemptCounter = numToString(counter);
+            attemptedPath = concatenate(folderPath, attemptCounter);
+            free(attemptCounter);
+            isPathExists = checkPath(attemptedPath);
+            if (!isPathExists) {
+                break;
+            }
+            free(attemptedPath);
+            counter++;
+        }
     }
-    closedir(dir);
-    return 1;
+    createFolder(attemptedPath);
+    if (attemptedPath == folderPath) {
+        return folderPath;
+    }
+    free(folderPath);
+    return attemptedPath;
 }
 
-int openArchive(char* path) {
+int openArchive(char *path) {
     int arch = open(path, O_RDONLY | O_BINARY);
     if (arch == -1) {
         return 0;
@@ -173,14 +190,14 @@ int openArchive(char* path) {
     return 1;
 }
 
-int readMeta(record* fileMeta) {
+int readMeta(record *fileMeta) {
     unsigned sizeTemp;
-    char* pathTemp = (char*)malloc(sizeof(char)*256);
+    char *pathTemp = (char *) malloc(sizeof(char) * 256);
     if (read(*archive, &sizeTemp, sizeof(unsigned)) == 0) {
         return 0;
     }
     char temp = ' ';
-    for (int i = 0; temp != '\0' ; i++) {
+    for (int i = 0; temp != '\0'; i++) {
         if (read(*archive, &temp, 1) == 0) {
             return 0;
         }
@@ -191,36 +208,82 @@ int readMeta(record* fileMeta) {
     return 1;
 }
 
-void printMeta(record* fileMeta) {
+void printMeta(record *fileMeta) {
     printf("File \"%s\", size %d bytes.\n", fileMeta->path, fileMeta->size);
 }
 
-int main(int argc, char** argv) {
-    char* path = NULL;
-    char* name = NULL;
-    char* destinationPath = NULL;
+
+
+void unpackFile(char* path, unsigned length) {
+    char chunk[CHUNK_SIZE];
+    int file = open(path, O_WRONLY | O_CREAT | O_EXCL | O_BINARY, S_IRUSR | S_IWUSR);
+    if (file == -1) {
+        PRINTD("Error creating file %s.\n", path)
+    }
+    for (int i = 0; i < length / CHUNK_SIZE; i++) {
+        read(*archive, &chunk, CHUNK_SIZE);
+        write(file, &chunk, CHUNK_SIZE);
+    }
+    read(*archive, &chunk, length % CHUNK_SIZE);
+    write(file, &chunk, length % CHUNK_SIZE);
+}
+
+void unpackArchive(char *path) {
+    char *resultPath = NULL;
+    char *innerPath = NULL;
+    char *fileName = NULL;
+    char *fullPath = NULL;
+    record *fileMeta = (record *) malloc(sizeof(record));
+    while (readMeta(fileMeta)) {
+        fileName = getLastEntity(fileMeta->path);
+        if (isFilename(fileMeta->path)) {
+            resultPath = copyString(path);
+        } else {
+            innerPath = getPathToFile(fileMeta->path, fileName);
+            resultPath = stickPath(path, innerPath);
+        }
+        if (!checkPath(resultPath)) {
+            createPath(path, innerPath);
+        }
+        fullPath = stickPath(resultPath, fileName);
+        unpackFile(fullPath, fileMeta->size);
+        if (fileMeta->path != NULL) {
+            free(fileMeta->path);
+        }
+        free(fileName);
+        free(innerPath);
+        free(resultPath);
+        free(fullPath);
+    }
+    free(fileMeta);
+}
+
+int main(int argc, char **argv) {
+    char *path = NULL;
+    char *name = NULL;
+    char *destinationPath = NULL;
     //Mode "1" - unpack, mode "2" - pack, mode "3" - show archive content
     int mode = 0;
     // Parse arguments
     for (int i = 1; i < argc; i++) {
-        if (strcmp(*(argv+i), "-m") == 0) {
+        if (strcmp(*(argv + i), "-m") == 0) {
             i++;
-            if (strcmp(*(argv+i), "u") == 0) {
+            if (strcmp(*(argv + i), "u") == 0) {
                 mode = 1;
-            } else if (strcmp(*(argv+i), "p") == 0) {
+            } else if (strcmp(*(argv + i), "p") == 0) {
                 mode = 2;
-            } else if (strcmp(*(argv+i), "s") == 0) {
+            } else if (strcmp(*(argv + i), "s") == 0) {
                 mode = 3;
             }
-        } else if (strcmp(*(argv+i), "-p") == 0) {
+        } else if (strcmp(*(argv + i), "-p") == 0) {
             i++;
-            path = *(argv+i);
-        } else if (strcmp(*(argv+i), "-d") == 0) {
+            path = *(argv + i);
+        } else if (strcmp(*(argv + i), "-d") == 0) {
             i++;
-            destinationPath = *(argv+i);
-        } else if (strcmp(*(argv+i), "-n") == 0) {
+            destinationPath = *(argv + i);
+        } else if (strcmp(*(argv + i), "-n") == 0) {
             i++;
-            name = *(argv+i);
+            name = *(argv + i);
         }
     }
 
@@ -235,20 +298,28 @@ int main(int argc, char** argv) {
         return 1;
     }
     //Cut last folder name from path
-    char* lastPathDir = getLastEntity(path);
+    char *lastPathDir = getLastEntity(path);
+    //Check is name for archive were specified
+    if (name == NULL) {
+        if (lastPathDir != NULL) {
+            if (isFilename(lastPathDir)) {
+                name = cutExtension(lastPathDir);
+            } else {
+                name = lastPathDir;
+            }
+        } else {
+            printf("Incorrect filename/path specified.");
+            return 1;
+        }
+    }
     if (mode < 3) {
         // Is destination path were specified
         if (destinationPath == NULL) {
             unsigned folder_len = strlen(path) - strlen(lastPathDir);
-            destinationPath = (char*) malloc(sizeof(char) * folder_len);
+            destinationPath = (char *) malloc(sizeof(char) * folder_len);
             strncpy(destinationPath, path, folder_len);
             destinationPath[folder_len - 1] = '\0';
-            PRINTD("Result folder: %s\n", destinationPath);
-        }
-        //Check path availability
-        if (!checkPath(path)) {
-            printf("Incorrect path: %s\n", path);
-            return 1;
+            PRINTD("Result folder: %s\n", destinationPath)
         }
         //Check destination path
         if (path != destinationPath) {
@@ -257,24 +328,25 @@ int main(int argc, char** argv) {
                 return 1;
             }
         }
-        //Check is name for archive were specified
-        if (name == NULL) {
-            name = lastPathDir;
-            if (name == NULL) {
-                printf("Incorrect filename/path specified.");
-                return 1;
-            }
-        }
     }
     //
     if (mode == 1) {
-        createFolder(destinationPath, name);
+        openArchive(path);
+        char *resFolder = createResultFolder(destinationPath, name);
+        printf("%s\n", resFolder);
+        unpackArchive(resFolder);
+        closeArchive();
     } else if (mode == 2) {
+        //Check path availability
+        if (!checkPath(path)) {
+            printf("Incorrect path: %s\n", path);
+            return 1;
+        }
         createArchive(destinationPath, name);
         list_directories(path, path);
         closeArchive();
     } else {
-        record* fileMeta = (record*)malloc(sizeof(record));
+        record *fileMeta = (record *) malloc(sizeof(record));
         if (!openArchive(path)) {
             printf("Error opening archive.\n");
             return 1;
