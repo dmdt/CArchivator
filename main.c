@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/stat.h>
 
 #include "lib/pathlib/pathlib.h"
@@ -32,7 +33,7 @@ record *prepareFile(char *path, char *relPath) {
     //Struct with fileMeta meta
     record *fileMeta = (record *) malloc(sizeof(record));
     ALLOC_TEST(fileMeta)
-    int file = open(path, O_RDONLY | O_BINARY);
+    int file = open(path, O_RDONLY);
     if (file == -1) {
         PRINTD("Error opening fileMeta %s.", path)
         fileMeta->path = NULL;
@@ -52,7 +53,7 @@ void packFile(record *fileMeta, char *file) {
     write(*archive, fileMeta->path, strlen(fileMeta->path) + 1);
     char *chunk = (char *) malloc(sizeof(char) * CHUNK_SIZE);
     ALLOC_TEST(chunk)
-    int sourceFile = open(file, O_RDONLY | O_BINARY);
+    int sourceFile = open(file, O_RDONLY);
     for (unsigned i = 0; i < fileMeta->size / CHUNK_SIZE; i++) {
         read(sourceFile, chunk, CHUNK_SIZE);
         write(*archive, chunk, CHUNK_SIZE);
@@ -93,7 +94,7 @@ void createArchive(char *path, char *filename) {
     //Check file existance
     char *incompletePath = stickPath(path, filename);
     char *completePath = concatenate(incompletePath, ".arch");
-    int iArchive = open(completePath, O_RDONLY | O_BINARY);
+    int iArchive = open(completePath, O_RDONLY);
     if (iArchive > 0) {
         int attempt = 0;
         do {
@@ -109,7 +110,7 @@ void createArchive(char *path, char *filename) {
         } while (iArchive > 0);
     }
     PRINTD("New Path %s\n", completePath)
-    int arch = open(completePath, O_WRONLY | O_CREAT | O_EXCL | O_BINARY, S_IRUSR | S_IWUSR);
+    int arch = open(completePath, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
     if (arch == -1) {
         printf("Error opening file.\n");
         return;
@@ -190,7 +191,7 @@ char *createResultFolder(char *path, char *name) {
 }
 
 int openArchive(char *path) {
-    int arch = open(path, O_RDONLY | O_BINARY);
+    int arch = open(path, O_RDONLY);
     if (arch == -1) {
         return 0;
     }
@@ -229,7 +230,7 @@ int unpackFile(char* path, unsigned length) {
     int bytes = 0;
     char *chunk = (char *) malloc(sizeof(char) * CHUNK_SIZE);
     ALLOC_TEST(chunk)
-    int file = open(path, O_WRONLY | O_CREAT | O_EXCL | O_BINARY, S_IRUSR | S_IWUSR);
+    int file = open(path, O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
     if (file == -1) {
         PRINTD("Error creating file %s.\n", path)
     }
