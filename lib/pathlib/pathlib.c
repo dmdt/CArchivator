@@ -15,6 +15,13 @@ if (!x) {\
 #define DELIMETER_STR "/"
 #endif
 
+char *copyString(const char * str) {
+    char * result = (char *) malloc(sizeof(char) * (strlen(str) + 1));
+    ALLOC_TEST(result)
+    strcpy(result, str);
+    return result;
+}
+
 char *getRelativePath(char *base, char *path) {
     unsigned relativePathLength = strlen(path) - strlen(base);
     char *relativePath = (char *) malloc(sizeof(char) * relativePathLength);
@@ -150,11 +157,4 @@ void createPath(const char *base, const char *path) {
         free(*(pathEntities+i));
     }
     free(oldPath);
-}
-
-char *copyString(const char * str) {
-    char * result = (char *) malloc(sizeof(char) * (strlen(str) + 1));
-    ALLOC_TEST(result)
-    strcpy(result, str);
-    return result;
 }

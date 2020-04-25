@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <dirent.h>
+#include "pathlib.c"
 
 char *getRelativePath(char *, char *);
 
