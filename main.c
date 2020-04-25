@@ -39,8 +39,7 @@ record *prepareFile(char *path, char *relPath) {
         fileMeta->path = NULL;
         return fileMeta;
     }
-    lseek(file, 0, SEEK_END);
-    fileMeta->size = tell(file);
+    fileMeta->size = lseek(file, 0, SEEK_END);
     fileMeta->path = relPath;
     PRINTD("File size %d Bytes\n", fileMeta->size)
     PRINTD("File relative path: %s\n", fileMeta->path)
@@ -387,7 +386,7 @@ int main(int argc, char **argv) {
             files++;
         }
         free(fileMeta);
-        printf("Archive size %ld bytes. %d files.\n", tell(*archive), files);
+        printf("Archive size %ld bytes. %d files.\n", lseek(*archive, 0, SEEK_CUR), files);
         closeArchive();
     }
     free(lastPathDir);
