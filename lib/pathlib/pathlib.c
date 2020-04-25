@@ -92,7 +92,7 @@ int checkPath(char *path) {
 }
 
 int createFolder(char *path) {
-    if (mkdir(path) == -1) {
+    if (mkdir(path, S_IRUSR | S_IWUSR) == -1) {
         return 0;
     }
     return 1;
