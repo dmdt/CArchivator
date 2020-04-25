@@ -6,8 +6,7 @@ if (!x) {\
     exit(1);\
 }
 
-#define SYSTEM WIN
-#if SYSTEM == WIN
+#ifdef WIN
 #define DELIMETER '\\'
 #define DELIMETER_STR "\\"
 #else
