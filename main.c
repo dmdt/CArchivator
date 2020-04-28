@@ -205,6 +205,7 @@ int readMeta(record *fileMeta) {
     char *pathTemp = (char *) malloc(sizeof(char) * 256);
     ALLOC_TEST(pathTemp)
     if (read(*archive, &sizeTemp, sizeof(unsigned)) == 0) {
+        free(pathTemp);
         return 0;
     }
     char temp = ' ';
