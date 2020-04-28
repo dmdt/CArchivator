@@ -41,7 +41,7 @@ record *prepareFile(char *path, char *relPath) {
     }
     fileMeta->size = lseek(file, 0, SEEK_END);
     fileMeta->path = relPath;
-    PRINTD("File size %d Bytes\n", fileMeta->size)
+    PRINTD("File size %u Bytes\n", fileMeta->size)
     PRINTD("File relative path: %s\n", fileMeta->path)
     close(file);
     return fileMeta;
@@ -168,8 +168,8 @@ char *createResultFolder(char *path, char *name) {
 
     if (isPathExists) {
         int counter = 1;
-        char *attemptCounter;
         while (1) {
+            char *attemptCounter;
             attemptCounter = numToString(counter);
             attemptedPath = concatenate(folderPath, attemptCounter);
             free(attemptCounter);
@@ -205,6 +205,7 @@ int readMeta(record *fileMeta) {
     char *pathTemp = (char *) malloc(sizeof(char) * 256);
     ALLOC_TEST(pathTemp)
     if (read(*archive, &sizeTemp, sizeof(unsigned)) == 0) {
+        free(pathTemp);
         return 0;
     }
     char temp = ' ';
@@ -220,7 +221,7 @@ int readMeta(record *fileMeta) {
 }
 
 void printMeta(record *fileMeta) {
-    printf("File \"%s\", size %d bytes.\n", fileMeta->path, fileMeta->size);
+    printf("File \"%s\", size %u bytes.\n", fileMeta->path, fileMeta->size);
 }
 
 

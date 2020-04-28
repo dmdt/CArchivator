@@ -30,14 +30,15 @@ char *getRelativePath(char *base, char *path) {
 }
 
 char *getLastEntity(char *path) {
+    char* saveptr;
     char *temp = (char *) malloc(sizeof(char) * (strlen(path) + 1));
     ALLOC_TEST(temp)
     strcpy(temp, path);
-    char *prev = strtok(temp, DELIMETER_STR);
-    char *current = strtok(NULL, DELIMETER_STR);
+    char *prev = strtok_r(temp, DELIMETER_STR, &saveptr);
+    char *current = strtok_r(NULL, DELIMETER_STR, &saveptr);
     while (current != NULL) {
         prev = current;
-        current = strtok(NULL, DELIMETER_STR);
+        current = strtok_r(NULL, DELIMETER_STR, &saveptr);
     }
     char *lastEntity = (char *) malloc(sizeof(char) * (strlen(prev) + 1));
     ALLOC_TEST(lastEntity)
@@ -82,7 +83,7 @@ int isFilename(char *name) {
 
 int checkPath(char *path) {
     DIR *directory = opendir(path);
-    if (directory == NULL) {
+    if (!directory) {
         closedir(directory);
         return 0;
     }
@@ -121,6 +122,7 @@ char *getPathToFile(const char *path, const char *filename) {
 }
 
 int decomposePath(const char* path, char *** container) {
+    char* saveptr;
     int pathEntities = 1;
     char *findEntities = strstr(path, DELIMETER_STR);
     while (findEntities) {
@@ -132,10 +134,10 @@ int decomposePath(const char* path, char *** container) {
     char *temp = (char *) malloc(sizeof(char) * (strlen(path) + 1));
     ALLOC_TEST(temp)
     strcpy(temp, path);
-    char *pathEntity = strtok(temp, DELIMETER_STR);
+    char *pathEntity = strtok_r(temp, DELIMETER_STR, &saveptr);
     for (int i = 0; i < pathEntities; i++) {
         *(*container+i) = copyString(pathEntity);
-        pathEntity = strtok(NULL, DELIMETER_STR);
+        pathEntity = strtok_r(NULL, DELIMETER_STR, &saveptr);
     }
     return pathEntities;
 }
