@@ -91,7 +91,8 @@ int checkPath(char *path) {
 }
 
 int createFolder(char *path) {
-    if (mkdir(path, S_IRUSR | S_IWUSR) == -1) {
+    mode_t md = 0777;
+    if (mkdir(path, md) == -1) {
         return 0;
     }
     return 1;
