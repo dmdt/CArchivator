@@ -41,7 +41,7 @@ record *prepareFile(char *path, char *relPath) {
     }
     fileMeta->size = lseek(file, 0, SEEK_END);
     fileMeta->path = relPath;
-    PRINTD("File size %d Bytes\n", fileMeta->size)
+    PRINTD("File size %u Bytes\n", fileMeta->size)
     PRINTD("File relative path: %s\n", fileMeta->path)
     close(file);
     return fileMeta;
@@ -221,7 +221,7 @@ int readMeta(record *fileMeta) {
 }
 
 void printMeta(record *fileMeta) {
-    printf("File \"%s\", size %d bytes.\n", fileMeta->path, fileMeta->size);
+    printf("File \"%s\", size %u bytes.\n", fileMeta->path, fileMeta->size);
 }
 
 
