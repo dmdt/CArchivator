@@ -83,7 +83,7 @@ int isFilename(char *name) {
 
 int checkPath(char *path) {
     DIR *directory = opendir(path);
-    if (directory == NULL) {
+    if (!directory) {
         closedir(directory);
         return 0;
     }

@@ -168,8 +168,8 @@ char *createResultFolder(char *path, char *name) {
 
     if (isPathExists) {
         int counter = 1;
-        char *attemptCounter;
         while (1) {
+            char *attemptCounter;
             attemptCounter = numToString(counter);
             attemptedPath = concatenate(folderPath, attemptCounter);
             free(attemptCounter);
